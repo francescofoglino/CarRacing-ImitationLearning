@@ -51,16 +51,16 @@ def convertActionBack(action):
         return [0., 0., 0.]
     # turn right
     elif action == 1:
-        return [1., 0., 0.]
+        return [1./FRAME_SKIP, 0., 0.]
     # turn left
     elif action == 2:
-        return [-1., 0., 0.]
+        return [-1./FRAME_SKIP, 0., 0.]
     # accelerate
     elif action == 3:
-        return [0., 1., 0.]
+        return [0., 1./FRAME_SKIP, 0.]
     # break
     elif action == 4:
-        return [0., 0., 0.8]
+        return [0., 0., 0.8/FRAME_SKIP]
     else:
         raise
 
