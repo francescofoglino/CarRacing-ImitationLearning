@@ -7,7 +7,11 @@ from DeepQNetwork import DeepQNetwork
 from torchvision import transforms
 import torch
 import os
-import Dataset
+from Dataset import FRAME_STACK, FRAME_SKIP, TransitionsDataset
+
+#################################################################################################
+# Function copied from link (https://pytorch.org/tutorials/intermediate/mario_rl_tutorial.html) #
+#################################################################################################
 
 class SkipFrame(gym.Wrapper):
     def __init__(self, env, skip):
@@ -27,22 +31,19 @@ class SkipFrame(gym.Wrapper):
                 break
         return obs, total_reward, done, info
 
-##########################################################################################
-##########################################################################################
-##########################################################################################
+#################################################################################################
+#################################################################################################
+#################################################################################################
 
+# Cerate OpenAI gym environment
 env_name = "CarRacing-v0"
 env = gym.make(env_name)
 
-FRAME_SKIP  = 4
-FRAME_STACK = 3
-
+# Downsample frame rate of the environment and stack multiple frames for creating a single observation
 env = SkipFrame(env, skip=FRAME_SKIP)
 env = FrameStack(env, num_stack=FRAME_STACK)
 
-#env = wrappers.Monitor(env, "./", video_callable=False ,force=True)
-
-# This simple function applies the opposit transformation of convertActionBack
+# This simple function applies the opposit transformation of convertAction in Dataset.py
 def convertActionBack(action):
     action = action.tolist()
 
@@ -86,7 +87,7 @@ def runTestEpisodes(agent, num_episodes):
         while True:
 
             #input_img = TRSF(s_0.copy())
-            input_img = Dataset.TransitionsDataset.transformState(s_0)
+            input_img = TransitionsDataset.transformState(s_0)
 
             a = agent(input_img[None, ...]).argmax()
             a = convertActionBack(a)
