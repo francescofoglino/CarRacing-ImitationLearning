@@ -3,7 +3,8 @@ import random
 import numpy as np
 
 from gym.wrappers import FrameStack
-from Simulator import FRAME_STACK, FRAME_SKIP, SkipFrame
+from Simulator import SkipFrame
+from Dataset import FRAME_STACK, FRAME_SKIP
 
 # Cerate OpenAI gym environment
 env_name = "CarRacing-v0"
