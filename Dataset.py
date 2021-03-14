@@ -5,52 +5,50 @@ import os
 from PIL import Image
 import numpy as np
 import random
-from Simulator import FRAME_SKIP
 
-"""
-TRSF = transforms.Compose([transforms.ToPILImage(),
-                           transforms.Grayscale(),
-                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                           transforms.ToTensor()])
-"""
+FRAME_SKIP  = 4
+FRAME_STACK = 3
 
+# Image transformation to be applied to each single image in our dataset. Greyscale allows us to downscale the image
+# dimensionality to only one channel while normalization helps the training process
 TRSF = transforms.Compose([transforms.ToTensor(),
                            transforms.Grayscale(),
                            transforms.Normalize((0.5), (0.5))])
 
+# Custom dataset for handling and processing the transitions to be used for imitation learning
 class TransitionsDataset(Dataset):
-
-    def __init__(self, datasetPath, downsample=False):
-
+    # @balance is the variable for controlling the number of "no action" samples in the dataset since they represent the
+    # vast majority of all the actions taken. This re-balancing is supposed to improve learning performance.
+    def __init__(self, datasetPath, balance=None):
+        # If we input a folder path the class will read all the transition files inside it for creating the dataset
         if os.path.isdir(datasetPath):
             transitions_files = os.listdir(datasetPath)
-            data_name = "dataset_Q_test_" + str(len(transitions_files)) + ".npy"
+            data_name = "dataset_" + str(len(transitions_files)) + ".npy"
 
             self.dataset = []
-
+            # Process one transition file at a time
             for t_file in transitions_files:
                 transit = np.load(datasetPath + t_file, allow_pickle=True).tolist()
 
-                if downsample:
-                    transit     = self.reduceNumberFrames(transit)
-                    data_name   = "dataset_" + str(len(transitions_files)) + "_d" + str(1000/len(transit)) + ".npy"
-
+                # Process each single transition (in the file) separately for converting the action from list to a
+                # single integer in order to "communicate" with the DQN
                 for t in transit:
-
                     # Action conversion
                     a = t["action"]
                     t["action"] = self.convertAction(a)
 
                     self.dataset.append(t)
 
-            self.dataset = self.balanceActionsSamples(self.dataset)
+            if balance != None:
+                self.dataset = self.balanceActionsSamples(balance)
 
             np.save(data_name, self.dataset)
 
+        # If instead we input a file name it will be used as a dataset directly
         elif os.path.isfile(datasetPath):
             self.dataset = np.load(datasetPath, allow_pickle=True)
         else:
-            raise ValueError
+            raise ValueError("datasetPath must be either a folder to the transition files or a dataset")
 
     def __len__(self):
         return len(self.dataset)
@@ -58,6 +56,8 @@ class TransitionsDataset(Dataset):
     def __getitem__(self, idx):
         return self.dataset[idx]
 
+    # pre-processing step necessary only during training. It transforms the images (states) accordingly to the previously
+    # defined transformations
     def preProcessing(self):
         for d in self.dataset:
             s_0 = d["state_0"]
@@ -66,8 +66,7 @@ class TransitionsDataset(Dataset):
             d["state_0"] = self.transformState(s_0)
             d["state_1"] = self.transformState(s_1)
 
-            #self.transformTransition(d)
-
+    # Method for transforming a single image. it is define as static since it needs to be used also by Simulator.py
     @staticmethod
     def transformState(s):
         all_s = []
@@ -78,24 +77,6 @@ class TransitionsDataset(Dataset):
             all_s.append(TRSF(s[f].copy()))
 
         return torch.cat(all_s)
-
-    #obsolete
-    def transformTransition(self, t):
-
-        s_0 = t["state_0"]
-        s_1 = t["state_1"]
-
-        all_s_0 = []
-        all_s_1 = []
-
-        num_frames = len(s_0)
-
-        for f in range(num_frames):
-            all_s_0.append(TRSF(s_0[f]))
-            all_s_1.append(TRSF(s_1[f]))
-
-        t["state_0"] = torch.cat(all_s_0)
-        t["state_1"] = torch.cat(all_s_1)
 
     # This is a simple function to convert the action list coming from the dataset composed of three values into an integer
     # value that can directly be used by to select the right Q-value from the DeepQNetwork.
@@ -121,34 +102,13 @@ class TransitionsDataset(Dataset):
         else:
             raise
 
-    # Obsolete. Simple function to perform downsampling on the dataset
-    def reduceNumberFrames(self, transitions):
-
-        new_transitions = []
-
-        num_frames  = 2
-        num_t       = len(transitions)/num_frames
-
-        for i in range(int(num_t)):
-            j = i*num_frames
-
-            r_sum = 0
-            for z in range(num_frames):
-                r_sum += transitions[j+z]["reward"]
-
-            down_transit = transitions[j+num_frames-1]
-            down_transit["reward"] = r_sum
-
-            new_transitions.append(down_transit)
-
-        return new_transitions
-
     # This function balances the number of samples per action. Basically the vast majority of the actions is "no action"
-    # due to the nature of the problem which can obstaculate learning. The if statement is "hard coded" on the number of
-    # actions as they are not supposed to change in number and meaning.
-    def balanceActionsSamples(self, transitions):
+    # due to the nature of the problem which can obstaculate learning.
+    def balanceActionsSamples(self, b):
 
-        balance = 1
+        transitions = self.dataset
+
+        balance = b
 
         a0 = []
         a1 = []
@@ -183,25 +143,9 @@ class TransitionsDataset(Dataset):
         return a0_downsampled + a1 + a2 + a3 + a4
 
 
-# For creating and managing the dataset
+# For creating and managing the dataset independently
 if __name__ == "__main__":
-    #td = TransitionsDataset("./dataset_D_25.npy")
-    td = TransitionsDataset("./transitions/", downsample=False)
+    td = TransitionsDataset("./dataset_18.npy")
+    #td = TransitionsDataset("./transitions/", balance=1)
 
     td.preProcessing()
-
-    sample = td[0]
-
-    print("Hello")
-    """
-    This is an old test to visualize images before the transfromation
-    
-    for i in range(10):
-        s_0, a, s_1, r = td[200+i].values()
-
-        Image.fromarray(s_0, 'RGB').show()
-        Image.fromarray(s_1, 'RGB').show()
-
-        print(a)
-        print(r)
-    """
