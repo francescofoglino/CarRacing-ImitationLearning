@@ -5,6 +5,7 @@ import os
 from PIL import Image
 import numpy as np
 import random
+from Simulator import FRAME_SKIP
 
 """
 TRSF = transforms.Compose([transforms.ToPILImage(),
@@ -106,16 +107,16 @@ class TransitionsDataset(Dataset):
         if action == [0., 0., 0.]:
             return 0
         # turn right
-        elif action == [1., 0., 0.]:
+        elif action == [1./FRAME_SKIP, 0., 0.]:
             return 1
         # turn left
-        elif action == [-1., 0., 0.]:
+        elif action == [-1./FRAME_SKIP, 0., 0.]:
             return 2
         # accelerate
-        elif action == [0., 1., 0.]:
+        elif action == [0., 1./FRAME_SKIP, 0.]:
             return 3
         # break
-        elif action == [0., 0., 0.8]:
+        elif action == [0., 0., 0.8/FRAME_SKIP]:
             return 4
         else:
             raise
