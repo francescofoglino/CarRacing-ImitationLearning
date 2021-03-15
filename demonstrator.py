@@ -4,7 +4,7 @@ import numpy as np
 
 from gym.wrappers import FrameStack
 from Simulator import SkipFrame
-from Dataset import FRAME_STACK, FRAME_SKIP
+from Dataset import FRAME_STACK, FRAME_SKIP, TURN, ACCELERATE, BREAK
 
 # Cerate OpenAI gym environment
 env_name = "CarRacing-v0"
@@ -31,18 +31,18 @@ if __name__ == "__main__":
         if k == 0xFF0D:
             restart = True
         if k == key.LEFT:
-            a[0] = -1.0/FRAME_SKIP
+            a[0] = -TURN/FRAME_SKIP
         if k == key.RIGHT:
-            a[0] = +1.0/FRAME_SKIP
+            a[0] = +TURN/FRAME_SKIP
         if k == key.UP:
-            a[1] = +1.0/FRAME_SKIP
+            a[1] = +ACCELERATE/FRAME_SKIP
         if k == key.DOWN:
-            a[2] = +0.8/FRAME_SKIP  # set 1.0 for wheels to block to zero rotation
+            a[2] = +BREAK/FRAME_SKIP  # set 1.0 for wheels to block to zero rotation
 
     def key_release(k, mod):
-        if k == key.LEFT and a[0] == -1.0/FRAME_SKIP:
+        if k == key.LEFT and a[0] == -TURN/FRAME_SKIP:
             a[0] = 0
-        if k == key.RIGHT and a[0] == +1.0/FRAME_SKIP:
+        if k == key.RIGHT and a[0] == +TURN/FRAME_SKIP:
             a[0] = 0
         if k == key.UP:
             a[1] = 0
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     ##########################################################################################
 
     # @episode is used as an ID for saving the different demonstrations in different files
-    episode         = 15
+    episode         = 0
 
     isopen = True
 
