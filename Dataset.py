@@ -9,6 +9,13 @@ import random
 FRAME_SKIP  = 4
 FRAME_STACK = 3
 
+GAMMA = 0.99
+
+# Car control parameters
+TURN        = 0.8
+ACCELERATE  = 1.0
+BREAK       = 0.4
+
 # Image transformation to be applied to each single image in our dataset. Greyscale allows us to downscale the image
 # dimensionality to only one channel while normalization helps the training process
 TRSF = transforms.Compose([transforms.ToTensor(),
@@ -19,11 +26,11 @@ TRSF = transforms.Compose([transforms.ToTensor(),
 class TransitionsDataset(Dataset):
     # @balance is the variable for controlling the number of "no action" samples in the dataset since they represent the
     # vast majority of all the actions taken. This re-balancing is supposed to improve learning performance.
-    def __init__(self, datasetPath, balance=None):
+    def __init__(self, datasetPath, balance=None, mc=False):
         # If we input a folder path the class will read all the transition files inside it for creating the dataset
         if os.path.isdir(datasetPath):
             transitions_files = os.listdir(datasetPath)
-            data_name = "dataset_" + str(len(transitions_files)) + ".npy"
+            data_name = "dataset_mc_" + str(len(transitions_files)) + ".npy"
 
             self.dataset = []
             # Process one transition file at a time
@@ -38,6 +45,9 @@ class TransitionsDataset(Dataset):
                     t["action"] = self.convertAction(a)
 
                     self.dataset.append(t)
+
+                if mc:
+                    self.monteCarloTarget(transit)
 
             if balance != None:
                 self.dataset = self.balanceActionsSamples(balance)
@@ -88,19 +98,19 @@ class TransitionsDataset(Dataset):
         if action == [0., 0., 0.]:
             return 0
         # turn right
-        elif action == [1./FRAME_SKIP, 0., 0.]:
+        elif action == [TURN/FRAME_SKIP, 0., 0.]:
             return 1
         # turn left
-        elif action == [-1./FRAME_SKIP, 0., 0.]:
+        elif action == [-TURN/FRAME_SKIP, 0., 0.]:
             return 2
         # accelerate
-        elif action == [0., 1./FRAME_SKIP, 0.]:
+        elif action == [0., ACCELERATE/FRAME_SKIP, 0.]:
             return 3
         # break
-        elif action == [0., 0., 0.8/FRAME_SKIP]:
+        elif action == [0., 0., BREAK/FRAME_SKIP]:
             return 4
         else:
-            raise
+            raise ValueError("Action not identified. This is probably due to a demonstration with multiple actions overlapping during a time stamp.")
 
     # This function balances the number of samples per action. Basically the vast majority of the actions is "no action"
     # due to the nature of the problem which can obstaculate learning.
@@ -142,10 +152,26 @@ class TransitionsDataset(Dataset):
 
         return a0_downsampled + a1 + a2 + a3 + a4
 
+    # Given a transition, this method converts its immediate reward into the dicounted return (discounted sum of
+    # rewards) which can then be directly used as a target for the learning algorithm.
+    def monteCarloTarget(self, transitions):
+        reverseTransit = transitions[::-1]
 
-# For creating and managing the dataset independently
+        next_rew = 0
+
+        for rt in reverseTransit:
+            reward = rt["reward"]
+            expected_dicounted_rewards = reward + GAMMA*next_rew
+
+            rt["reward"] = expected_dicounted_rewards
+            next_rew = expected_dicounted_rewards
+
+
+# For creating and managing the dataset independently.
 if __name__ == "__main__":
-    td = TransitionsDataset("./dataset_18.npy")
-    #td = TransitionsDataset("./transitions/", balance=1)
+    #td = TransitionsDataset("./dataset_18.npy")
 
-    td.preProcessing()
+    # When we create the dataset from a folder of transition files we might encounter some issues due to "corrupted"
+    # transitions where multiple actions were taken together by the demonstrator. For sake of simplicity I do no handle
+    # this case and simply delete manually those transition files that present this problem during the dataset creation.
+    td = TransitionsDataset("./transitions/", balance=None, mc=True)
