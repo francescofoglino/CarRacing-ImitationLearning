@@ -8,7 +8,7 @@ import numpy as np
 from math import floor
 
 from DeepQNetwork import DeepQNetwork
-from Dataset import TransitionsDataset
+from Dataset import TransitionsDataset, GAMMA
 from Simulator import runTestEpisodes
 
 import itertools
@@ -42,7 +42,7 @@ if __name__ == "__main__":
         root = "./"
 
     # Dataset creation/loading
-    transitions_dataset = TransitionsDataset(root + "dataset_Q_test_11.npy")
+    transitions_dataset = TransitionsDataset(root + "dataset_18.npy")
     transitions_dataset.preProcessing()
 
     losses_map = []
@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
             # Parameters
             num_epochs      = 500
-            gamma           = 0.99
+            gamma           = GAMMA
             learning_rate   = lr
             batch           = 1000
             update_target   = up_target
@@ -150,4 +150,3 @@ if __name__ == "__main__":
         losses_map.append({save_folder : sum(epochs_loss)/num_epochs})
 
     print(list(losses_map))
-    np.savetxt(root + "all_losses.txt", list(losses_map), dtype=object)
