@@ -7,7 +7,7 @@ from DeepQNetwork import DeepQNetwork
 from torchvision import transforms
 import torch
 import os
-from Dataset import FRAME_STACK, FRAME_SKIP, TransitionsDataset
+from Dataset import FRAME_STACK, FRAME_SKIP, TransitionsDataset, TURN, ACCELERATE, BREAK
 
 #################################################################################################
 # Function copied from link (https://pytorch.org/tutorials/intermediate/mario_rl_tutorial.html) #
@@ -52,27 +52,25 @@ def convertActionBack(action):
         return [0., 0., 0.]
     # turn right
     elif action == 1:
-        return [1./FRAME_SKIP, 0., 0.]
+        return [TURN/FRAME_SKIP, 0., 0.]
     # turn left
     elif action == 2:
-        return [-1./FRAME_SKIP, 0., 0.]
+        return [-TURN/FRAME_SKIP, 0., 0.]
     # accelerate
     elif action == 3:
-        return [0., 1./FRAME_SKIP, 0.]
+        return [0., ACCELERATE/FRAME_SKIP, 0.]
     # break
     elif action == 4:
-        return [0., 0., 0.8/FRAME_SKIP]
+        return [0., 0., BREAK/FRAME_SKIP]
     else:
         raise
 
+# Function for testing a single model @num_episodes times
 def runTestEpisodes(agent, num_episodes):
 
-    env.render()
-    #env.viewer.window.on_key_press = key_press
-    #env.viewer.window.on_key_release = key_release
+    agent.eval()
 
-    #trsf = transforms.Compose([transforms.ToTensor(),
-    #                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    env.render()
 
     returns = []
 
@@ -81,24 +79,19 @@ def runTestEpisodes(agent, num_episodes):
         s_0 = env.reset()
 
         total_reward    = 0.0
-        steps           = 0
         restart         = False
 
         while True:
 
-            #input_img = TRSF(s_0.copy())
             input_img = TransitionsDataset.transformState(s_0)
 
             a = agent(input_img[None, ...]).argmax()
             a = convertActionBack(a)
 
-            #print(a)
-
             # s_1 is the next state also knowsn as s_prime
             s_1, r, done, info = env.step(a)
             total_reward += r
 
-            steps += 1
             env.render()
             if done or restart:
                 returns.append(total_reward)
@@ -111,8 +104,12 @@ def runTestEpisodes(agent, num_episodes):
 
     env.close()
 
+    agent.train()
+
     return returns
 
+# This function runs a test for each model present in the input folder. It is ment to be used for testing each model
+# saved during training of a single architecture in order to plot the correspondent learning curve
 def computeAvgReturns(modelsPath, numTestEpisodes=3):
     import gc
 
@@ -135,7 +132,8 @@ def computeAvgReturns(modelsPath, numTestEpisodes=3):
 
 if __name__ == "__main__":
     agent = DeepQNetwork(0.5)
-    agent.load_state_dict(torch.load("./models/sf0.5_lr1e-05_ut1/rep_0/DQN_e399.pt", map_location=torch.device('cpu')))
+    #agent.load_state_dict(torch.load("./models/sf0.5_lr1e-05_ut1/rep_0/DQN_e399.pt", map_location=torch.device('cpu')))
+    agent.load_state_dict(torch.load("./models/sf0.5_lr0.01_BN/DQN_e199.pt", map_location=torch.device('cpu')))
 
     R = runTestEpisodes(agent, 3)
 
