@@ -4,8 +4,7 @@ import torch.nn.functional as F
 
 from math import floor
 
-#from Simulator import FRAME_STACK
-
+# CNN base architecture
 class DeepQNetwork(nn.Module):
 
     def __init__(self, scale=1):
@@ -30,7 +29,7 @@ class DeepQNetwork(nn.Module):
         kernels.append(kernel_size_conv3)
 
         # pooling operation
-        pool = (2, 2)
+        pool = (1, 1)
         self.pool = nn.MaxPool2d(pool)
         # the pooling function is the same for both the conv layers so we add its dimension twice to the list of pooling operations
         poolings = [pool] * 3
@@ -38,16 +37,16 @@ class DeepQNetwork(nn.Module):
         self.flat_dim_fc = self.flat_dim((96,96), out_channels_conv3, poolings, kernels)
 
         # For BAtch Normalization
-        #self.bn2d_1 = nn.BatchNorm2d(out_channels_conv1)
-        #self.bn2d_2 = nn.BatchNorm2d(out_channels_conv2)
-        #self.bn2d_3 = nn.BatchNorm2d(out_channels_conv3)
+        self.bn2d_1 = nn.BatchNorm2d(int(out_channels_conv1))
+        self.bn2d_2 = nn.BatchNorm2d(int(out_channels_conv2))
+        self.bn2d_3 = nn.BatchNorm2d(int(out_channels_conv3))
 
         # fully connected layers
         self.fc1 = nn.Linear(self.flat_dim_fc, floor(64*scale))
-        #self.bn1d_1 = nn.BatchNorm1d(256)
+        self.bn1d_1 = nn.BatchNorm1d(int(64*scale))
 
         self.fc2 = nn.Linear(floor(64*scale), floor(32*scale))
-        #self.bn1d_2 = nn.BatchNorm1d(128)
+        self.bn1d_2 = nn.BatchNorm1d(int(32*scale))
 
         self.fc3 = nn.Linear(floor(32*scale), 5) # the output size is equal to the number of actions/q-values per state
         #self.bn1d_3 = nn.BatchNorm1d(1)
@@ -56,18 +55,18 @@ class DeepQNetwork(nn.Module):
 
         # hinge together convolutions and pooling operations
         x = self.pool(F.relu(self.conv1(x)))
-        # x = self.bn2d_1(x)
+        x = self.bn2d_1(x)
         x = self.pool(F.relu(self.conv2(x)))
-        # x = self.bn2d_2(x)
+        x = self.bn2d_2(x)
         x = self.pool(F.relu(self.conv3(x)))
-        # x = self.bn2d_3(x)
+        x = self.bn2d_3(x)
 
         x = x.view(-1, self.flat_dim_fc)
 
         x = F.relu(self.fc1(x))
-        # x = self.bn1d_1(x)
+        x = self.bn1d_1(x)
         x = F.relu(self.fc2(x))
-        # x = self.bn1d_2(x)
+        x = self.bn1d_2(x)
 
         x = self.fc3(x)
         #x = torch.sigmoid(self.fc3(x))
